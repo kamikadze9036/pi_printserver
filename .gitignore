@@ -7,6 +7,11 @@ venv/
 node_modules/
 dist/
 coverage/
+.test-tmp*/
+.tools/
+.backups/
+playwright-report/
+test-results/
 .DS_Store
 .idea/
 .vscode/

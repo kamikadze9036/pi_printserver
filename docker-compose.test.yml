@@ -1,0 +1,26 @@
+# Isolated test database and TCP receiver. Production resources are untouched.
+services:
+  test-db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: pi_tests
+      POSTGRES_USER: pi_tests
+      POSTGRES_PASSWORD: test-password-only
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pi_tests -d pi_tests"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  tests:
+    build: ./backend
+    environment:
+      SECRET_KEY: test-only-secret-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+      ADMIN_PASSWORD: test-admin-password-123
+      TEST_DATABASE_URL: postgresql+psycopg://pi_tests:test-password-only@test-db/pi_tests
+    depends_on:
+      test-db:
+        condition: service_healthy
+    command: ["python", "-m", "pytest", "-q", "tests", "--basetemp=/tmp/pi-tests", "-p", "no:cacheprovider"]

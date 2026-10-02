@@ -1,0 +1,46 @@
+name: MVP verification
+on: [push, pull_request]
+
+jobs:
+  backend-postgres:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: PostgreSQL migrations, permissions, audit, TCP and import tests
+        run: docker compose -p pi-printserver-tests -f docker-compose.test.yml up --build --abort-on-container-exit --exit-code-from tests
+      - name: Clean isolated test stack
+        if: always()
+        run: docker compose -p pi-printserver-tests -f docker-compose.test.yml down
+
+  frontend-and-browser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Configure isolated acceptance stack
+        run: |
+          mkdir -p .tools
+          printf 'POSTGRES_PASSWORD=%s\nSECRET_KEY=%s\nADMIN_PASSWORD=%s\nFRONTEND_PORT=18080\n' "$(openssl rand -hex 24)" "$(openssl rand -hex 32)" "$(openssl rand -hex 18)" > .tools/acceptance.env
+      - name: Build and start application
+        run: docker compose -p pi-printserver-mvp-check --env-file .tools/acceptance.env -f docker-compose.yml -f docker-compose.e2e.yml up --build -d --wait
+      - name: Build frontend and install browser
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+          npx playwright install --with-deps chromium
+      - name: Browser acceptance tests
+        working-directory: frontend
+        run: npm run test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: browser-test-artifacts
+          path: frontend/test-results
+      - name: Clean isolated acceptance stack
+        if: always()
+        run: docker compose -p pi-printserver-mvp-check --env-file .tools/acceptance.env -f docker-compose.yml -f docker-compose.e2e.yml down

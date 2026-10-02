@@ -1,0 +1,9 @@
+# Add this file to the normal Compose stack ONLY for acceptance tests.
+services:
+  simulator:
+    image: python:3.12-slim
+    command: ["python", "-u", "/tests/simulator.py"]
+    volumes:
+      - ./backend/tests/simulator.py:/tests/simulator.py:ro
+    ports:
+      - "127.0.0.1:${SIMULATOR_PORT:-19191}:9191"
