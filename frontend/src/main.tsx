@@ -1,0 +1,3 @@
+import React from "react";import{createRoot}from"react-dom/client";import"./style.css";
+function App(){return <main><h1>pi_printserver</h1><p>Central network label printing</p><section><h2>Print labels</h2><label>Product<input placeholder="Search product code…"/></label><label>Quantity<input type="number" min="1" defaultValue="1"/></label><label>Reason<select><option>Index change</option><option>Relabeling</option><option>Customer request</option><option>Quality action</option><option>Other</option></select></label><button disabled>PRINT — backend workflow pending</button></section></main>}
+createRoot(document.getElementById("root")!).render(<App/>);
