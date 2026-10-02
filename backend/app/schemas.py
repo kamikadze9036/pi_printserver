@@ -70,11 +70,20 @@ class TemplateInput(Input):
     width_mm: float = Field(gt=0, le=500)
     height_mm: float = Field(gt=0, le=500)
     elements: list[Element] = Field(min_length=1, max_length=100)
+    render_mode: Literal["bounded", "legacy"] = "bounded"
     active: bool = True
 
     @model_validator(mode="after")
     def bounds(self):
         for element in self.elements:
+            if self.render_mode == "legacy" and element.type == "text":
+                # The source ZPL generator never used a text element's w/h.
+                # Preserve its data; only its origin must be on the label.
+                if element.x >= self.width_mm or element.y >= self.height_mm:
+                    raise ValueError(
+                        f"Element {element.name or element.type} starts outside label dimensions"
+                    )
+                continue
             if (
                 element.x + element.w > self.width_mm + 0.001
                 or element.y + element.h > self.height_mm + 0.001

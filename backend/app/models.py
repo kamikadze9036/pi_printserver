@@ -58,12 +58,16 @@ class Template(Base):
     __tablename__ = "templates"
     __table_args__ = (
         CheckConstraint("width_mm > 0 AND height_mm > 0", name="template_dimensions"),
+        CheckConstraint("render_mode IN ('bounded','legacy')", name="template_render_mode"),
     )
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(160), unique=True)
     width_mm: Mapped[float] = mapped_column(Float)
     height_mm: Mapped[float] = mapped_column(Float)
     elements: Mapped[list] = mapped_column(JSON)
+    render_mode: Mapped[str] = mapped_column(
+        String(16), default="bounded", server_default="bounded"
+    )
     active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 

@@ -22,6 +22,7 @@ export interface Template {
   width_mm: number;
   height_mm: number;
   elements: Element[];
+  render_mode: "bounded" | "legacy";
   active: boolean;
 }
 export interface Printer {

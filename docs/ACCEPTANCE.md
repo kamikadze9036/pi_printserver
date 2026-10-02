@@ -19,9 +19,16 @@ The extra service replaces only the printer endpoint during acceptance testing.
 
 Final automated results:
 
-- **45 backend tests passed** locally and against actual PostgreSQL in the isolated
+- **49 backend tests passed** locally and against actual PostgreSQL in the isolated
   test Compose project. This includes migration/model agreement, audit triggers,
   concurrent idempotency, authorization, import and socket delivery.
+- The actual local reference catalog (14 products, 3 templates) was exercised
+  separately from the synthetic fixtures. All 42 product/DPI combinations
+  matched the reference text values, coordinates, font sizes and QR payloads.
+  All 42 batches of quantity 40 reached the isolated TCP receiver with matching
+  audit hashes. Repeating import or a print token produced no duplicates.
+  The original SQLite file's SHA-256 stayed unchanged. Legacy out-of-bounds
+  text boxes are preserved through the explicit compatibility mode.
 - **8 Chromium acceptance scenarios passed**, including administration, 40-label
   delivery, reprint, viewer permissions, copy import, visible failure, settings,
   mobile layout and uncertain print/reprint retries after a lost HTTP response.

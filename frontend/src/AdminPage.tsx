@@ -82,6 +82,7 @@ const defaults: Record<Entity, RecordData> = {
     width_mm: 60,
     height_mm: 40,
     elements: defaultElements,
+    render_mode: "bounded",
     active: true,
   },
   printers: {
@@ -173,6 +174,18 @@ function fields(
         max: 500,
       },
       { key: "active", label: "Aktivní šablona", type: "checkbox" },
+      {
+        key: "render_mode",
+        label: "Režim vykreslení",
+        type: "select",
+        options: [
+          { value: "bounded", label: "Text v blocích (šířka a výška)" },
+          {
+            value: "legacy",
+            label: "Původní printserver_win (text bez zalamování)",
+          },
+        ],
+      },
     ];
   if (entity === "printers")
     return [

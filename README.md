@@ -99,7 +99,17 @@ sample data/DPI. Supported variables:
 `{product_code}`, `{qr_content}`, `{text_content}` / `{text1}`, `{text2}`,
 `{text3}`, `{text4}`, `{date}`, `{time}`, `{datetime_iso}`, `{operator}`.
 
-Unknown variables and elements outside label dimensions are rejected. QR sizing
+Unknown variables and elements outside label dimensions are rejected for new
+templates in **Text v blocích** mode. Imported templates use **Původní
+printserver_win** mode: text remains a single line at the original coordinates
+and font size, ignoring the old text box width/height exactly as the reference
+ZPL generator did. This preserves older templates whose text boxes extend past
+the media without resizing their contents. Text origins and QR bounds are still
+validated. The template editor shows the selected mode; changing to block mode
+requires fixing any out-of-bounds boxes first. Legacy `{datetime_iso}` keeps the
+reference `YYYY-MM-DDTHH:MM:SS` format without an offset.
+
+QR sizing
 uses the actual payload's module count, including its quiet zone. Field data is
 sanitized and UTF-8 hex encoded, so label contents cannot inject ZPL commands.
 SVG preview displays actual QR data and element positions; browser text metrics
@@ -135,6 +145,8 @@ their data match exactly; otherwise resolve the conflict and repeat dry-run.
 Legacy accounts/passwords/PINs, Windows/TSPL printer settings, production orders
 and kiosk print logs are excluded. Configure network printers and new users in
 this application. See [reference mapping](docs/REFERENCE.md) for exact behavior.
+The dry-run reports text boxes outside the media; legacy rendering retains their
+original behavior and the printer clips at the actual label edge.
 
 ## HTTPS, reverse proxy and persistence
 

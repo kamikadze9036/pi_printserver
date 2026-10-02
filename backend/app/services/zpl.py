@@ -26,7 +26,9 @@ def sanitize_zpl(value: str) -> str:
     return "".join(c for c in str(value or "") if c not in "^~" and (ord(c) >= 32 or c == "\n"))
 
 
-def resolve_variables(text: str, product: dict, username: str, now: datetime | None = None) -> str:
+def resolve_variables(
+    text: str, product: dict, username: str, now: datetime | None = None, legacy: bool = False
+) -> str:
     now = now or datetime.now(timezone.utc)
     values = {key: product.get(key, "") or "" for key in VARIABLES}
     values.update(
@@ -34,7 +36,9 @@ def resolve_variables(text: str, product: dict, username: str, now: datetime | N
         operator=username,
         date=now.strftime("%d.%m.%Y"),
         time=now.strftime("%H:%M:%S"),
-        datetime_iso=now.isoformat(timespec="seconds"),
+        datetime_iso=now.strftime("%Y-%m-%dT%H:%M:%S")
+        if legacy
+        else now.isoformat(timespec="seconds"),
     )
 
     def replacement(match):
@@ -63,6 +67,7 @@ def set_quantity(zpl: str, quantity: int) -> str:
 def layout(template, product, username, dpi, now):
     template = TemplateInput.model_validate(
         {k: template[k] for k in ("name", "width_mm", "height_mm", "elements")}
+        | {"render_mode": template.get("render_mode", "bounded")}
     )
     result = []
     for element in template.elements:
@@ -71,6 +76,7 @@ def layout(template, product, username, dpi, now):
             product,
             username,
             now,
+            legacy=template.render_mode == "legacy",
         )
         item = element.model_dump() | {
             "resolved": value,
@@ -95,11 +101,12 @@ def layout(template, product, username, dpi, now):
                 raise ValueError(f"QR element {element.name} is too small for its content")
             item.update(matrix=matrix, magnification=mag)
         else:
-            if len(value.encode("utf-8")) > 3000:
+            text_data = value if template.render_mode == "legacy" else value.replace("\n", "\\&")
+            if len(text_data.encode("utf-8")) > 3000:
                 raise ValueError("Text field exceeds the Zebra field-block limit of 3000 bytes")
             font = max(20, int(element.font_size * dpi / 25.4 * 0.35))
             height, width = mm_to_dots(element.h, dpi), mm_to_dots(element.w, dpi)
-            if font > height:
+            if template.render_mode != "legacy" and font > height:
                 raise ValueError(f"Text element {element.name} height is smaller than its font")
             item.update(
                 font=font,
@@ -148,12 +155,18 @@ def render_zpl(
         else:
             if item["reverse"]:
                 lines += [f"^FO{x},{y}", f"^GB{item['wd']},{item['hd']},{item['hd']},B,0^FS"]
-            text_data = item["resolved"].replace("\n", "\\&")
+            text_data = (
+                item["resolved"]
+                if template.render_mode == "legacy"
+                else item["resolved"].replace("\n", "\\&")
+            )
             lines += [
                 f"^FO{x},{y}",
                 "^FR" if item["reverse"] else "",
                 f"^A0N,{item['font']},{item['font']}",
-                f"^FB{item['wd']},{item['lines']},0,L,0",
+                f"^FB{item['wd']},{item['lines']},0,L,0"
+                if template.render_mode != "legacy"
+                else "",
                 f"^FH_^FD{encode_field(text_data)}^FS",
             ]
     return set_quantity("\r\n".join(lines) + "\r\n^XZ", quantity)
@@ -185,6 +198,11 @@ def render_svg(
                 svg.append(
                     f'<rect x="{x}" y="{y}" width="{item["wd"]}" height="{item["hd"]}" fill="black"/>'
                 )
+            if template.render_mode == "legacy":
+                svg.append(
+                    f'<text x="{x}" y="{y + item["font"] * 0.8}" font-family="Arial,sans-serif" font-size="{item["font"]}" fill="{color}">{html.escape(item["resolved"].replace(chr(10), ""))}</text>'
+                )
+                continue
             svg.append(
                 f'<clipPath id="t{index}"><rect x="{x}" y="{y}" width="{item["wd"]}" height="{item["hd"]}"/></clipPath>'
             )

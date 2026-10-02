@@ -55,6 +55,7 @@ def test_import_dry_run_mapping_repeat_and_source_unchanged(client, tmp_path):
     assert product["template_id"] == template["id"] and template["id"] != 42
     assert product["text_content"] == "Description" and product["text4"] == "fourth"
     assert product["side"] == "R" and product["highlight_right"]
+    assert template["render_mode"] == "legacy"
     assert hashlib.sha256(path.read_bytes()).hexdigest() == before
     again = client.post(
         "/api/import/dry-run",
@@ -104,3 +105,29 @@ def test_invalid_legacy_template_and_missing_mapping(client, tmp_path):
         data={"confirm_copy": "true"},
     )
     assert response.status_code == 422 and "missing source template" in response.text
+
+
+def test_legacy_text_boxes_and_contents_are_preserved(client, tmp_path):
+    path = legacy_copy(tmp_path)
+    with sqlite3.connect(path) as db:
+        elements = [
+            {"type": "text", "x": 1, "y": 18, "w": 15, "h": 6, "font_size": 8, "content": "{text1}"}
+        ]
+        db.execute(
+            "UPDATE templates SET width_mm=32,height_mm=20,elements=?", (json.dumps(elements),)
+        )
+    dry = client.post(
+        "/api/import/dry-run",
+        files={"file": ("copy.db", path.read_bytes())},
+        data={"confirm_copy": "true"},
+    )
+    assert dry.status_code == 200, dry.text
+    assert any("beyond label dimensions" in warning for warning in dry.json()["report"]["warnings"])
+    assert client.post(f"/api/import/{dry.json()['id']}/execute").status_code == 200
+    template = client.get("/api/templates").json()[0]
+    assert template["render_mode"] == "legacy"
+    assert all(template["elements"][0][key] == value for key, value in elements[0].items())
+    from app.services.zpl import render_zpl
+
+    zpl = render_zpl(template, client.get("/api/products").json()[0], "admin")
+    assert "^FB" not in zpl

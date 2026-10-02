@@ -12,12 +12,14 @@ without `highlight_right`. Neither checkout nor its database is modified.
 | JSON string `templates.elements` | Validated JSON array, text and QR elements |
 | Element `x/y/w/h` | Millimetres, checked against label dimensions |
 | Text `font_size` | Reference conversion: `max(20, int(font_size * dpi / 25.4 * 0.35))` |
+| Legacy ZPL ignores text `w/h` | Imported templates use `render_mode=legacy`; single-line text retains original position/font without `^FB` wrapping. Source boxes extending past media remain intact. New templates default to bounded text blocks. |
 | Product `product_code` | Unique, uppercase product code |
 | `qr_content`, `text_content`, `text2`–`text4` | Preserved fields; `text1` is an alias of `text_content` |
 | `side`, optional `highlight_right` | Preserved; right-side text fields can be inverted |
 | Source `template_id` | Remapped through source IDs to newly created or identical existing templates |
 | Nullable legacy template | Kept unassigned; product cannot print until a template is assigned |
 | All eleven reference variable names | Same meanings; one render timestamp in configured timezone |
+| Legacy `{datetime_iso}` | Preserved `YYYY-MM-DDTHH:MM:SS` format; bounded templates retain an explicit timezone offset |
 | QR size assumed 21 modules | Actual QR version and quiet zone determine magnification |
 | `^PQ1` | One job with validated quantity and `^PQquantity,0,1,Y` |
 | Raw text interpolation | Sanitized data and UTF-8 byte escaping with `^FH`; `^CI28` |

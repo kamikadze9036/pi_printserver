@@ -113,3 +113,67 @@ def test_multiline_text_and_field_capacity():
     assert "_5C_26" in render_zpl(template, {"text_content": "line1\nline2"}, "user")
     with pytest.raises(ValueError, match="field-block limit"):
         render_zpl(template, {"text_content": "A" * 3001}, "user")
+    with pytest.raises(ValueError, match="field-block limit"):
+        render_zpl(template, {"text_content": "\n" * 1501}, "user")
+
+
+def test_legacy_text_mode_retains_original_geometry_and_iso_value():
+    from datetime import timedelta, timezone
+
+    from app.schemas import TemplateInput
+    from pydantic import ValidationError
+
+    template = {
+        "name": "Legacy32",
+        "width_mm": 32,
+        "height_mm": 20,
+        "render_mode": "legacy",
+        "elements": [
+            {
+                "type": "text",
+                "x": 2,
+                "y": 18,
+                "w": 15,
+                "h": 6,
+                "font_size": 8,
+                "content": "{datetime_iso}|{text1}",
+            }
+        ],
+    }
+    now = datetime(2026, 10, 2, 9, 30, 15, tzinfo=timezone(timedelta(hours=2)))
+    zpl = render_zpl(
+        template, {"text_content": "long text that should not wrap"}, "operator", 300, 40, now
+    )
+    assert "^FB" not in zpl and "^FO24,213" in zpl and "^A0N,33,33" in zpl
+    import re
+
+    field = re.search(r"\^FH_\^FD((?:_[0-9A-F]{2})+)\^FS", zpl)
+    assert (
+        bytes.fromhex(field[1].replace("_", "")).decode()
+        == "2026-10-02T09:30:15|long text that should not wrap"
+    )
+    svg = render_svg(
+        template, {"text_content": "long text that should not wrap"}, "operator", 300, now
+    )
+    assert "long text that should not wrap" in svg and "clipPath" not in svg
+    with pytest.raises(ValidationError, match="exceeds label dimensions"):
+        TemplateInput.model_validate(template | {"render_mode": "bounded"})
+    template["elements"][0]["y"] = 20
+    with pytest.raises(ValidationError, match="starts outside"):
+        TemplateInput.model_validate(template)
+
+
+def test_legacy_mode_still_rejects_qr_outside_label():
+    from app.schemas import TemplateInput
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError, match="exceeds label dimensions"):
+        TemplateInput.model_validate(
+            {
+                "name": "Bad QR",
+                "width_mm": 32,
+                "height_mm": 20,
+                "render_mode": "legacy",
+                "elements": [{"type": "qr", "x": 30, "y": 0, "w": 10, "h": 10}],
+            }
+        )

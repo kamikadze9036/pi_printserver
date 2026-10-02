@@ -6,7 +6,7 @@ test -f .env || { echo 'Configure .env before deployment' >&2; exit 1; }
 test "$(git branch --show-current)" = main || { echo 'Expected main branch' >&2; exit 1; }
 test -z "$(git status --porcelain)" || { echo 'Checkout contains local changes; review them before deploying' >&2; exit 1; }
 umask 077
-compose() { docker compose -p pi-printserver --env-file .env -f docker-compose.yml "$@"; }
+compose() { docker compose -p pi-printserver --env-file .env -f docker-compose.yml "$@" </dev/null; }
 # Back up the existing production database before any new migration.
 if [ -n "$(compose ps --status running -q db)" ]; then
   mkdir -p .backups

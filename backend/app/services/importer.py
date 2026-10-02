@@ -82,6 +82,7 @@ def read_copy(content: bytes):
                         width_mm=row["width_mm"],
                         height_mm=row["height_mm"],
                         elements=elements,
+                        render_mode="legacy",
                         active=bool(row.get("active", True)),
                     ).model_dump()
                 except (ValueError, KeyError, TypeError) as exc:
@@ -91,6 +92,14 @@ def read_copy(content: bytes):
                 ids.add(row["id"])
                 names.add(item["name"])
                 payload["templates"].append({"source_id": row["id"], "data": item})
+                if any(
+                    el.type == "text"
+                    and (el.x + el.w > item["width_mm"] or el.y + el.h > item["height_mm"])
+                    for el in TemplateInput.model_validate(item).elements
+                ):
+                    payload["warnings"].append(
+                        f"Template '{item['name']}' has text boxes beyond label dimensions; legacy rendering preserves original single-line text and physical label clipping."
+                    )
             for row in source.execute(f"SELECT * FROM products LIMIT {MAX_ROWS + 1}"):
                 if len(payload["products"]) >= MAX_ROWS:
                     raise ValueError("Too many products")

@@ -49,3 +49,35 @@ def test_template_validation_and_renderer():
         TemplateInput.model_validate(
             template | {"elements": [{"type": "text", "content": "{evil}"}]}
         )
+
+
+def test_render_mode_migration_preserves_existing_catalog(database):
+    from pathlib import Path
+
+    from alembic import command
+    from alembic.config import Config
+    from app.models import Product
+    from sqlalchemy import text
+    from sqlalchemy.exc import IntegrityError
+
+    config = Config(str(Path(__file__).parents[1] / "alembic.ini"))
+    command.downgrade(config, "0001")
+    with Session(database) as db:
+        db.execute(
+            text(
+                "INSERT INTO templates (id,name,width_mm,height_mm,elements,active,created_at) VALUES (100,'Existing',32,20,'[]',true,CURRENT_TIMESTAMP)"
+            )
+        )
+        db.add(Product(product_code="BEFORE-UPGRADE", template_id=100, qr_content="unchanged"))
+        db.commit()
+    command.upgrade(config, "head")
+    with Session(database) as db:
+        assert (
+            db.execute(text("SELECT render_mode FROM templates WHERE id=100")).scalar() == "bounded"
+        )
+        product = db.scalar(select(Product).where(Product.product_code == "BEFORE-UPGRADE"))
+        assert product.template_id == 100 and product.qr_content == "unchanged"
+        with pytest.raises(IntegrityError):
+            db.execute(text("UPDATE templates SET render_mode='invalid' WHERE id=100"))
+            db.commit()
+        db.rollback()
